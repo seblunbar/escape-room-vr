@@ -108,7 +108,7 @@
         { nombre: 'red', archivos: [
           { nombre: 'telefonos.sys', tam: 1.0, texto: 'Líneas externas: sin señal.\nCausa probable: tormenta tropical sobre la isla.\nPróximo barco de suministros: en 3 días.' },
           { nombre: 'firewall.cfg', tam: 0.6, texto: 'permitir  control -> puertas\npermitir  control -> camaras\nbloquear  todo lo demás\n\n# no tocar sin permiso de la directora' },
-          { nombre: 'correo.log', tam: 1.6, texto: 'De: directora_vega\nPara: tecnico_ruiz\nAsunto: tus claves\n\nRuiz, deja de usar claves obvias. Y ya te dije que no quiero fotos de tu perrita en el servidor.' }
+          { nombre: 'correo.log', tam: 1.6, texto: 'De: directora_rodriguez\nPara: tecnico_ruiz\nAsunto: tus claves\n\nRuiz, deja de usar claves obvias. Y ya te dije que no quiero fotos de tu perrita en el servidor.' }
         ]}
       ]},
       { nombre: 'seguridad', hijos: [
@@ -142,15 +142,15 @@
           { nombre: 'skibidi.txt', tam: 0.6, texto: 'Skibidi sigma pomni digital fortnite chamba free gigachad rizz omaigad floo xx tentación hot mail Lionel Messi Ronaldo junior mewing III chiki Ibai xokas este sech Golden toy puppet Ohio ruben tuesta smurf cat youtube pro insano globo de texto 51 decadencia 777 bomboclat activa cam fire in the hole la grasa luisardo el pepe como tan muchacho poppy playtime.' },
           { nombre: 'arcade.exe', tam: 1.4, accion: 'arcade' }
         ]},
-        { nombre: 'directora_vega', archivos: [
+        { nombre: 'directora_rodriguez', archivos: [
           { nombre: 'memo.txt', tam: 1.1, texto: 'Memo interno\n\nTodas las cerraduras magnéticas del edificio dependen del generador principal. Si se va la luz, las puertas se quedan abiertas. Ya pedí presupuesto para arreglarlo.' },
           { nombre: 'agenda.txt', tam: 0.7, texto: 'Lunes: inspección de cercas\nMartes: visita de inversionistas\nMiércoles: recordarle a Ruiz lo de las claves (otra vez)' },
           { nombre: 'claves.txt', tam: 0.5, texto: 'Acceso denegado.\nEste archivo solo lo puede leer la directora.\n(Buen intento.)' }
         ]},
-        { nombre: 'director_John', archivos: [
+        { nombre: 'director', archivos: [
           { nombre: 'memo.txt', tam: 1.1, texto: 'Memo interno\n\nTodas las cerraduras magnéticas del edificio dependen del generador principal. Si se va la luz, las puertas se quedan abiertas. Ya pedí presupuesto para arreglarlo.' },
-          { nombre: 'agenda.txt', tam: 0.7, texto: 'Lunes: inspección de cercas\nMartes: visita de inversionistas\nMiércoles: recordarle a Ruiz lo de las claves (otra vez)' },
-          { nombre: 'claves.txt', tam: 0.5, texto: 'Acceso denegado.\nEste archivo solo lo puede leer la directora.\n(Buen intento.)' }
+          { nombre: 'resumen_anual.txt', tam: 0.7, texto: 'Ampliación recinto hervíboros: coste estimado de $1,250,000.\nRecorte de salarios del 15%\nDespidos: meta de 50 empleados\nContrato con ClosedAI: 10.4% del presupuesto dirigido a integración de sistemas con IA.\nSalario director: aumento del 10% (15% si se logra mantener buena prensa.)' },
+          { nombre: 'datos.xls', tam: 0.5, acción: 'xls_viewer' }
         ]}
       ]},
       { nombre: 'juegos', hijos: [
@@ -163,7 +163,7 @@
           { nombre: 'minecraft_launcher.exe', tam: 1.4, accion: 'launchgame' },
           { nombre: 'overwatch.exe', tam: 0.7, texto: 'Error de conexión con el servidor de Blizzard.\n\nError 503: Service Unavailable' },
           { nombre: 'lol.exe', tam: 0.5, texto: 'Acceso denegado.\nBloqueado por el usuario.\n\n(Buena elección.)' }
-        ]}
+        ]},
       ]}
     ]
   };
@@ -174,7 +174,8 @@
     txt: { color: '#8fd3f4', nombre: 'texto' },      log: { color: '#6fc2a0', nombre: 'bitácora' },
     lck: { color: '#e2574c', nombre: 'cerradura' },  cam: { color: '#b88ce8', nombre: 'cámara' },
     sys: { color: '#c9d4e3', nombre: 'sistema' },    cfg: { color: '#aab8cc', nombre: 'configuración' },
-    jpg: { color: '#f2b8cf', nombre: 'imagen' },     url: { color: '#d1f2ff', nombre: 'acceso a internet' }
+    jpg: { color: '#f2b8cf', nombre: 'imagen' },     url: { color: '#d1f2ff', nombre: 'acceso a internet' },
+    xls: { color: '#53e051', nombre: 'hoja de cálculo' }
   };
   const extension = n => n.split('.').pop();
 
@@ -1008,6 +1009,10 @@ const REGLAS = {
   launchgame(a) {
     mostrar(a.nombre, 'MINECRAFT\nJugar\nOpciones\nMultijugador\nSalir\n\n(Se me olvidó la crisis jugando).\n-30 segundos.');
     J.inicio -= 30 * 1000;
+  },
+  xls_viewer(a) {
+    mostrar(a.nombre, 'Nunca he entendido cómo usar Excel.\n-10 segundos intentando entender los cientos de líneas de datos y ecuaciones.');
+    J.inicio -= 10 * 1000;
   }
 };
 
