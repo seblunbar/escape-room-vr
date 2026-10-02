@@ -1007,8 +1007,6 @@ const REGLAS = {
   },
   launchgame(a) {
     mostrar(a.nombre, 'MINECRAFT\nJugar\nOpciones\nMultijugador\nSalir\n\n(Se me olvidó la crisis jugando).\n-30 segundos.');
-    // El reloj se recalcula en cada cuadro a partir de J.inicio, así que para
-    // quitar tiempo adelantamos la hora de inicio 10 s (10000 ms) hacia el pasado.
     J.inicio -= 30 * 1000;
   }
 };
