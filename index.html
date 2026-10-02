@@ -156,7 +156,7 @@
         ]},
         { nombre: 'otros', archivos: [
           { nombre: 'minecraft_launcher.exe', tam: 1.4, accion: 'launchgame' },
-          { nombre: 'overwatch.exe', tam: 0.7, texto: 'Error de conexión con el servidor de Blizzard.\n\nError 503: Service Unavailable' },
+          { nombre: 'dice_roll.exe', tam: 0.7, accion: 'dice_roll' },
           { nombre: 'lol.exe', tam: 0.5, texto: 'Acceso denegado.\nBloqueado por el usuario.\n\n(Buena elección.)' }
         ]},
       ]}
@@ -610,7 +610,8 @@ const J = {
   pendiente: null,             // carpeta que espera clave + qué hacer después
   claveEscrita: '', claveError: '',
   accionMensaje: null,         // qué hace el botón de la ventana de mensajes
-  ultimoSeg: -1, ultimoM: -1
+  ultimoSeg: -1, ultimoM: -1,
+  dice_roll_cont: 0
 };
 let RAIZ = null, NODOS = [];
 let lineasConsola = [];        // la consola guarda aquí sus líneas: { t: texto, c: color }
@@ -1008,6 +1009,24 @@ const REGLAS = {
   xls_viewer(a) {
     mostrar(a.nombre, 'Nunca he entendido cómo usar Excel.\n-10 segundos intentando entender los cientos de líneas de datos y ecuaciones.');
     J.inicio -= 10 * 1000;
+  },
+  dice_roll(a) {
+    const n = Math.floor(Math.random() * 6) + 1;
+    mostrar(a.nombre, `Tiraste un dado y salió: ${n}`);
+    if (n === 6) { escribir('¡Felicidades!\nNo ganaste nada.', 'aviso'); }
+    else if (n <= 5 && n >= 2) { escribir('No ganaste nada.', 'error'); }
+    else { escribir('Mala suerte. Pero no perdiste ni ganaste nada.', 'error'); }
+    dice_roll_cont += 1;
+    if (dice_roll_cont === 5) {
+      escribir('¿No quieres hacer otra cosa?', 'tenue');
+    }
+    if (dice_roll_cont === 10) {
+      escribir('La emergencia no se ha parado, por cierto.', 'aviso');
+    }
+    if (dice_roll_cont === 50) {
+      escribir('99% de los jugadores se retiran justo antes de ganar. Nunca dejes de apostar.\n15 segundos extra (para seguir apostando.)', 'aviso');
+      J.inicio += 15 * 1000;
+    }
   }
 };
 
@@ -1111,7 +1130,7 @@ function terminar(gano) {
   }
 }
 function reiniciar() {
-  Object.assign(J, { activo: false, fin: false, restante: DURACION, arrancando: false, pendiente: null, ultimoSeg: -1, ultimoM: -1 });
+  Object.assign(J, { activo: false, fin: false, restante: DURACION, arrancando: false, pendiente: null, ultimoSeg: -1, ultimoM: -1, dice_roll_cont: 0 });
   J.desbloqueadas.clear();
   J.avisosDados.clear();
   lineasConsola = [];
