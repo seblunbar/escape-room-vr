@@ -526,7 +526,7 @@
   <!-- EL JUGADOR
        En la computadora el rig está un poco atrás y arriba para ver la mesa completa.
        Al entrar al visor lo regresamos a 0 0 0: la altura la pone tu cabeza de verdad. -->
-  <a-entity id="rig" position="0 0.75 0.6">
+  <a-entity id="rig" position="0 0.75 0.8">
     <a-entity id="camara" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
     <!-- Manos: laser-controls dibuja el láser y reconoce el gatillo del Quest.
          El raycaster solo toca objetos con la clase "clicable", hasta 6 m. -->
@@ -1006,10 +1006,10 @@ const REGLAS = {
     mostrar(a.nombre, 'INSERTE MONEDA\n\n...\n\nNo es momento para jugar.\n(Aunque esto podría ser un buen juego.)');
   },
   launchgame(a) {
-    mostrar(a.nombre, 'MINECRAFT\nJugar\nOpciones\nMultijugador\nSalir\n\n(Se me olvidó la crisis jugando).\n-10 segundos.');
+    mostrar(a.nombre, 'MINECRAFT\nJugar\nOpciones\nMultijugador\nSalir\n\n(Se me olvidó la crisis jugando).\n-30 segundos.');
     // El reloj se recalcula en cada cuadro a partir de J.inicio, así que para
     // quitar tiempo adelantamos la hora de inicio 10 s (10000 ms) hacia el pasado.
-    J.inicio -= 10 * 1000;
+    J.inicio -= 30 * 1000;
   }
 };
 
