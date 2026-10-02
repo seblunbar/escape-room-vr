@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<!--
+=====================================================================================
+   RESERVA ISLA ÁMBAR — VERSIÓN PARA META QUEST (VR)
+=====================================================================================
+   Es el mismo juego que la versión de computadora, pero ahora estás DE PIE en la
+   sala de control. El sistema de archivos es una MAQUETA HOLOGRÁFICA sobre una mesa.
+
+   ¿QUÉ CAMBIÓ RESPECTO A LA VERSIÓN DE COMPUTADORA?
+     1. Tú no te mueves. En vez de volar con la cámara (eso marea en VR), la
+        maqueta se acerca y se agranda frente a ti, como hacer zoom en un mapa.
+     2. No hay paneles de HTML. En VR solo se ve lo 3D, así que la consola, el
+        visor, el reloj y los mensajes son PANTALLAS 3D dibujadas en un <canvas>.
+     3. El mouse se cambió por los láseres de los controles (laser-controls).
+     4. La clave se escribe con un TECLADO 3D al que le apuntas con el láser.
+     5. El reloj usa tick() de A-Frame. En VR el navegador pausa
+        requestAnimationFrame, así que el bucle tiene que ir dentro de A-Frame.
+     6. Extra: el control VIBRA al hacer clic y cuando los raptores golpean.
+
+   CÓMO JUGARLO
+     • En el Quest: súbelo a Vercel (necesita https), ábrelo en el navegador del
+       Quest y presiona "Entrar al visor". Apunta con el láser y aprieta el gatillo.
+     • En la computadora: presiona "Jugar en la computadora". Arrastra el mouse
+       para mirar y haz clic para elegir.
+
+   ÍNDICE (busca estos títulos con Ctrl+F)
+     ESTILOS             solo la portada de HTML
+     1) DATOS            ARBOL y TIPOS (igual que la versión de computadora)
+     2) COMPONENTES      rotulo, pantalla, boton3d, teclado, suelo-reticula,
+                         sistema-archivos, reloj-juego
+     3) LA ESCENA        sala, mesa, maqueta, pantallas y controles
+     4) EL JUEGO         estado, pantallas, sonidos, zoom de la maqueta, carpetas,
+                         clave, archivos, REGLAS, reloj, principio y fin, conexiones
+
+   SÍMBOLOS:   ✏️ = puedes cambiarlo sin miedo     💡 = explicación de una idea
+=====================================================================================
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Reserva Isla Nublar VR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.8.0/dist/aframe-v1.8.0.min.js"></script>
+
+  <!-- ================================================================
+       ESTILOS: solo para la portada de HTML (lo que ves ANTES de entrar al visor).
+       Todo lo demás es 3D y se colorea desde el código.
+       ================================================================ -->
+  <style>
+    :root {
+      --fondo: #07101f; --panel: #0e1c33; --texto: #d6e6f5; --tenue: #8aa3bf;
+      --ambar: #f0a830; --borde-claro: #3d5a80; --borde-oscuro: #050b16;
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) { --fondo: #d6e0ec; --panel: #e8eef5; --texto: #14233a; --tenue: #4a5f7a; --ambar: #9a5d00; --borde-claro: #ffffff; --borde-oscuro: #7d8fa8; }
+    }
+    :root[data-theme="light"] { --fondo: #d6e0ec; --panel: #e8eef5; --texto: #14233a; --tenue: #4a5f7a; --ambar: #9a5d00; --borde-claro: #ffffff; --borde-oscuro: #7d8fa8; }
+    :root[data-theme="dark"] { --fondo: #07101f; --panel: #0e1c33; --texto: #d6e6f5; --tenue: #8aa3bf; --ambar: #f0a830; --borde-claro: #3d5a80; --borde-oscuro: #050b16; }
+    *, *::before, *::after { box-sizing: inherit; }
+    html { height: 100%; }
+    body { height: 100%; margin: 0; background: #07101f; font-family: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif; overflow: hidden; }
+
+    #portada {
+      position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+      background: var(--fondo); color: var(--texto); padding: 20px;
+      padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
+    #portada[hidden] { display: none; }
+    .tarjeta {
+      max-width: 34em; padding: 28px 30px; background: var(--panel);
+      border: 1px solid; border-color: var(--borde-claro) var(--borde-oscuro) var(--borde-oscuro) var(--borde-claro);
+    }
+    h1 { font-weight: 600; font-size: clamp(30px, 6vw, 46px); line-height: 1.05; margin: 0 0 6px; }
+    .sub { font-family: "IBM Plex Mono", Menlo, Consolas, monospace; color: var(--tenue); font-size: 14px; margin: 0 0 20px; }
+    p { font-size: 17px; line-height: 1.55; margin: 0 0 14px; }
+    .botones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    button {
+      font-family: inherit; font-size: 17px; font-weight: 600; padding: 10px 22px; cursor: pointer; color: var(--texto);
+      background: transparent; border: 1px solid var(--tenue); border-radius: 2px;
+    }
+    button.principal { background: var(--ambar); color: var(--fondo); border-color: var(--ambar); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:focus-visible { outline: 2px solid var(--ambar); outline-offset: 2px; }
+    #aviso-vr { font-size: 14px; color: var(--tenue); margin: 12px 0 0; min-height: 1.2em; }
+  </style>
+
+  <script>
+  /* =====================================================================
+     1) DATOS: el sistema de archivos (igual que en la versión de computadora)
+     ✏️ Cada archivo lleva: nombre (máx. ~14 letras), tam (altura del bloque),
+        texto (lo que se lee al abrirlo) y/o accion (una regla de REGLAS).
+     ===================================================================== */
+  const ARBOL = {
+    nombre: 'isla-ambar', hijos: [
+      { nombre: 'sistemas', hijos: [
+        { nombre: 'energia', archivos: [
+          { nombre: 'generador.exe', tam: 2.2, accion: 'energia' },
+          { nombre: 'respaldo.bat', tam: 0.7, texto: 'REM Generador de respaldo\nnivel_combustible = 0%\n\nREM Alguien olvidó recargarlo. Otra vez.' },
+          { nombre: 'consumo.log', tam: 1.4, texto: '04:12  consumo normal\n04:31  pico en cercas eléctricas\n04:33  caída total de energía\n04:33  cerraduras magnéticas: SIN ENERGÍA\n04:34  modo de emergencia activado' }
+        ]},
+        { nombre: 'red', archivos: [
+          { nombre: 'telefonos.sys', tam: 1.0, texto: 'Líneas externas: sin señal.\nCausa probable: tormenta tropical sobre la isla.\nPróximo barco de suministros: en 3 días.' },
+          { nombre: 'firewall.cfg', tam: 0.6, texto: 'permitir  control -> puertas\npermitir  control -> camaras\nbloquear  todo lo demás\n\n# no tocar sin permiso de la directora' },
+          { nombre: 'correo.log', tam: 1.6, texto: 'De: directora_vega\nPara: tecnico_ruiz\nAsunto: tus claves\n\nRuiz, deja de usar claves obvias. Y ya te dije que no quiero fotos de tu perrita en el servidor.' }
+        ]}
+      ]},
+      { nombre: 'seguridad', hijos: [
+        { nombre: 'puertas', clave: 'TUNGSAHUR', archivos: [
+          { nombre: 'control.lck', tam: 1.3, accion: 'puertaControl' },
+          { nombre: 'cocina.lck', tam: 0.9, accion: 'cerrar', texto: 'Cerradura de la cocina: CERRADA.\nBuena idea en general, pero tú estás en la sala de control.' },
+          { nombre: 'raptores.lck', tam: 1.1, accion: 'cerrar', texto: 'Error: la reja del recinto de raptores está abierta y el recinto está vacío. Cerrarla ahora no sirve de mucho.' }
+        ]},
+        { nombre: 'camaras', archivos: [
+          { nombre: 'pasillo.cam', tam: 1.8, accion: 'camPasillo' },
+          { nombre: 'cocina.cam', tam: 1.2, texto: 'Cámara de la cocina:\nsin movimiento.\nUna charola de pan dulce intacta sobre la mesa.' },
+          { nombre: 'recinto.cam', tam: 1.5, texto: 'Cámara del recinto R-3:\nreja abierta.\nHuellas de tres pares de patas que salen hacia el edificio de visitantes.' }
+        ]}
+      ]},
+      { nombre: 'recintos', hijos: [
+        { nombre: 'raptores', archivos: [
+          { nombre: 'estado.txt', tam: 0.9, texto: 'Recinto R-3\nCerca eléctrica: DESACTIVADA\nOcupantes esperados: 3\nOcupantes detectados: 0' },
+          { nombre: 'comida.log', tam: 1.3, texto: 'Última alimentación: hace 26 horas.\n\nNota del cuidador: están inquietas. Muy inquietas.' },
+          { nombre: 'conducta.txt', tam: 1.9, texto: 'Observaciones:\n- prueban las cercas en lugares distintos cada día\n- nunca repiten el mismo punto\n- parecen recordar dónde está cada puerta' }
+        ]},
+        { nombre: 'herbivoros', archivos: [
+          { nombre: 'estado.txt', tam: 0.9, texto: 'Recinto H-1\nCerca: DESACTIVADA\nOcupantes: 11 de 11\nComportamiento: comiendo helechos, sin preocupaciones.' },
+          { nombre: 'manada.log', tam: 1.2, texto: 'La manada durmió junto al lago.\nNada que reportar.\nQué envidia.' },
+          { nombre: 'dieta.txt', tam: 0.6, texto: 'Helechos: 400 kg por día.\nAgua: mucha.\nPresupuesto: insuficiente.' }
+        ]}
+      ]},
+      { nombre: 'personal', hijos: [
+        { nombre: 'tecnico_ruiz', archivos: [
+          { nombre: 'nota.txt', tam: 0.8, texto: 'Recordatorio para mí:\nya no uso mi fecha de nacimiento como clave.\nAhora es el nombre de mi perrita.\nNadie lo va a adivinar.' },
+          { nombre: 'doggo.jpg', tam: 2.0, texto: '[imagen]\nUna beagle sentada sobre el teclado de la sala de control. Su collar tiene una placa grabada: TUNGSAHUR.' },
+          { nombre: 'skibidi.txt', tam: 0.6, texto: 'Skibidi sigma pomni digital fortnite chamba free gigachad rizz omaigad floo xx tentación hot mail Lionel Messi Ronaldo junior mewing III chiki Ibai xokas este sech Golden toy puppet Ohio ruben tuesta smurf cat youtube pro insano globo de texto 51 decadencia 777 bomboclat activa cam fire in the hole la grasa luisardo el pepe como tan muchacho poppy playtime.' },
+          { nombre: 'arcade.exe', tam: 1.4, accion: 'arcade' }
+        ]},
+        { nombre: 'directora_vega', archivos: [
+          { nombre: 'memo.txt', tam: 1.1, texto: 'Memo interno\n\nTodas las cerraduras magnéticas del edificio dependen del generador principal. Si se va la luz, las puertas se quedan abiertas. Ya pedí presupuesto para arreglarlo.' },
+          { nombre: 'agenda.txt', tam: 0.7, texto: 'Lunes: inspección de cercas\nMartes: visita de inversionistas\nMiércoles: recordarle a Ruiz lo de las claves (otra vez)' },
+          { nombre: 'claves.txt', tam: 0.5, texto: 'Acceso denegado.\nEste archivo solo lo puede leer la directora.\n(Buen intento.)' }
+        ]},
+        { nombre: 'director_John', archivos: [
+          { nombre: 'memo.txt', tam: 1.1, texto: 'Memo interno\n\nTodas las cerraduras magnéticas del edificio dependen del generador principal. Si se va la luz, las puertas se quedan abiertas. Ya pedí presupuesto para arreglarlo.' },
+          { nombre: 'agenda.txt', tam: 0.7, texto: 'Lunes: inspección de cercas\nMartes: visita de inversionistas\nMiércoles: recordarle a Ruiz lo de las claves (otra vez)' },
+          { nombre: 'claves.txt', tam: 0.5, texto: 'Acceso denegado.\nEste archivo solo lo puede leer la directora.\n(Buen intento.)' }
+        ]}
+      ]},
+      { nombre: 'juegos', hijos: [
+        { nombre: 'steam', archivos: [
+          { nombre: 'superhot.url', tam: 0.8, texto: 'Abriendo...\nError de sincronización.\n\n(En el peor momento posible.)' },
+          { nombre: 'terraria.url', tam: 2.0, texto: '(Estaría bien usar los últimos\nminutos de mi vida matando al Moon Lord.)' },
+          { nombre: 'peak.url', tam: 0.6, texto: '(¿Con quién voy a jugar esto ahorita?)' },
+        ]},
+        { nombre: 'otros', archivos: [
+          { nombre: 'minecraft_launcher.exe', tam: 1.4, accion: 'launchgame' },
+          { nombre: 'overwatch.exe', tam: 0.7, texto: 'Error de conexión con el servidor de Blizzard.\n\nError 503: Service Unavailable' },
+          { nombre: 'lol.exe', tam: 0.5, texto: 'Acceso denegado.\nBloqueado por el usuario.\n\n(Buena elección.)' }
+        ]}
+      ]}
+    ]
+  };
+
+  // ✏️ Color de cada bloque según su extensión
+  const TIPOS = {
+    exe: { color: '#f0a830', nombre: 'programa' },   bat: { color: '#d98a3a', nombre: 'script' },
+    txt: { color: '#8fd3f4', nombre: 'texto' },      log: { color: '#6fc2a0', nombre: 'bitácora' },
+    lck: { color: '#e2574c', nombre: 'cerradura' },  cam: { color: '#b88ce8', nombre: 'cámara' },
+    sys: { color: '#c9d4e3', nombre: 'sistema' },    cfg: { color: '#aab8cc', nombre: 'configuración' },
+    jpg: { color: '#f2b8cf', nombre: 'imagen' },     url: { color: '#d1f2ff', nombre: 'acceso a internet' }
+  };
+  const extension = n => n.split('.').pop();
+
+  // Fuentes y colores que usan todas las pantallas 3D (canvas)
+  const MONO = '"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace';
+  const SANS = '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif';
+  const C = {
+    fondo: 'rgba(8, 18, 36, 0.9)', borde: '#3d5a80', texto: '#d6e6f5', tenue: '#8aa3bf',
+    ambar: '#f0a830', rojo: '#ff6a5c', verde: '#6fc2a0'
+  };
+
+
+  /* =====================================================================
+     2) COMPONENTES
+     ===================================================================== */
+
+  /* ---------------------------------------------------------------------
+     COMPONENTE "rotulo": una línea de texto 3D con acentos y ñ.
+     Dibuja el texto en un <canvas> y lo pega en un plano.
+     💡 Tiene update(): si cambias el texto con setAttribute('rotulo', 'texto', 'Hola'),
+        A-Frame llama a update() y el rótulo se vuelve a dibujar.
+     --------------------------------------------------------------------- */
+  AFRAME.registerComponent('rotulo', {
+    schema: {
+      texto: { default: '' },
+      color: { default: '#dbe8f6' },
+      alto:  { default: 0.3 },            // altura del texto en metros
+      fuente: { default: 'mono' }         // 'mono' o 'sans'
+    },
+    update() {
+      this.dibujar();
+      // Si la fuente todavía no llegaba de internet, la volvemos a dibujar cuando llegue
+      if (document.fonts) document.fonts.load(this.fuente()).then(() => this.dibujar()).catch(() => {});
+    },
+    fuente() { return '500 64px ' + (this.data.fuente === 'sans' ? SANS : MONO); },
+    dibujar() {
+      const d = this.data;
+      const lienzo = document.createElement('canvas');
+      const ctx = lienzo.getContext('2d');
+      ctx.font = this.fuente();
+      lienzo.width = Math.max(4, Math.ceil(ctx.measureText(d.texto).width) + 24);
+      lienzo.height = 96;
+      ctx.font = this.fuente();
+      ctx.fillStyle = d.color;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(d.texto, 12, 50);
+      const textura = new THREE.CanvasTexture(lienzo);
+      textura.colorSpace = THREE.SRGBColorSpace;
+      textura.anisotropy = 4;
+      const ancho = d.alto * lienzo.width / lienzo.height;
+      const viejo = this.el.getObject3D('mesh');
+      if (viejo) { viejo.geometry.dispose(); viejo.material.map.dispose(); viejo.material.dispose(); }
+      this.el.setObject3D('mesh', new THREE.Mesh(
+        new THREE.PlaneGeometry(ancho, d.alto),
+        new THREE.MeshBasicMaterial({ map: textura, transparent: true, depthWrite: false })
+      ));
+    },
+    remove() { this.el.removeObject3D('mesh'); }
+  });
+
+
+  /* ---------------------------------------------------------------------
+     COMPONENTE "pantalla": un monitor 3D en el que el juego puede dibujar.
+     Es un canvas grande pegado en un plano. El juego dibuja con
+       const p = el.components.pantalla;
+       p.limpiar();  ...dibujar con p.ctx...  p.listo();
+     💡 textura.needsUpdate = true le avisa a la tarjeta de video que el
+        dibujo cambió. Sin eso, la pantalla se quedaría con la imagen vieja.
+     --------------------------------------------------------------------- */
+  AFRAME.registerComponent('pantalla', {
+    schema: {
+      ancho: { default: 1 },            // metros
+      alto:  { default: 0.5 },          // metros
+      resolucion: { default: 800 },     // pixeles por metro (más = más nítido, más pesado)
+      conFondo: { default: true }
+    },
+    init() {
+      const d = this.data;
+      this.lienzo = document.createElement('canvas');
+      this.lienzo.width = Math.round(d.ancho * d.resolucion);
+      this.lienzo.height = Math.round(d.alto * d.resolucion);
+      this.ctx = this.lienzo.getContext('2d');
+      this.textura = new THREE.CanvasTexture(this.lienzo);
+      this.textura.colorSpace = THREE.SRGBColorSpace;
+      this.textura.anisotropy = 4;
+      this.el.setObject3D('mesh', new THREE.Mesh(
+        new THREE.PlaneGeometry(d.ancho, d.alto),
+        new THREE.MeshBasicMaterial({ map: this.textura, transparent: true })
+      ));
+      this.limpiar();
+      this.listo();
+    },
+    limpiar() {
+      const { ctx, lienzo } = this;
+      ctx.clearRect(0, 0, lienzo.width, lienzo.height);
+      if (!this.data.conFondo) return;
+      ctx.fillStyle = C.fondo;
+      ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+      ctx.strokeStyle = C.borde;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, lienzo.width - 4, lienzo.height - 4);
+    },
+    listo() { this.textura.needsUpdate = true; }
+  });
+
+
+  /* ---------------------------------------------------------------------
+     COMPONENTE "boton3d": un botón al que le apuntas con el láser.
+     Es el hermano mayor de "boton-sala" de tu museo: se ilumina al apuntarle
+     y lanza "click" al apretar el gatillo. El juego decide qué hace el clic.
+     --------------------------------------------------------------------- */
+  AFRAME.registerComponent('boton3d', {
+    schema: {
+      texto: { default: 'Botón' },
+      ancho: { default: 0.4 },
+      alto:  { default: 0.12 },
+      color: { default: '#1c3354' },
+      colorTexto: { default: '#d6e6f5' }
+    },
+    init() {
+      const el = this.el, d = this.data;
+      el.classList.add('clicable');
+      el.setAttribute('geometry', { primitive: 'plane', width: d.ancho, height: d.alto });
+      el.setAttribute('material', { shader: 'flat', color: d.color });
+      const t = document.createElement('a-entity');
+      t.setAttribute('position', '0 0 0.003');
+      t.setAttribute('rotulo', { texto: d.texto, alto: d.alto * 0.5, color: d.colorTexto, fuente: 'sans' });
+      el.appendChild(t);
+      el.addEventListener('mouseenter', () => el.setAttribute('material', 'color', '#3a6aa8'));
+      el.addEventListener('mouseleave', () => el.setAttribute('material', 'color', d.color));
+    }
+  });
+
+
+  /* ---------------------------------------------------------------------
+     COMPONENTE "teclado": letras 3D para escribir la clave con el láser.
+     Cada tecla es un boton3d. Al tocarla, el teclado avisa con el evento
+     "tecla" y manda la letra (o BORRAR / ENTRAR / CANCELAR).
+     --------------------------------------------------------------------- */
+  AFRAME.registerComponent('teclado', {
+    init() {
+      const filas = ['ABCDEFG', 'HIJKLMN', 'ÑOPQRST', 'UVWXYZ'];
+      const sepX = 0.13, sepY = 0.12;
+      filas.forEach((fila, f) => {
+        [...fila].forEach((letra, i) => this.tecla(letra, letra, (i - 3) * sepX, -f * sepY, 0.11));
+      });
+      this.tecla('Borrar', 'BORRAR', 3 * sepX, -3 * sepY, 0.11, '#4a2a33');
+      this.tecla('Cancelar', 'CANCELAR', -0.22, -4 * sepY - 0.02, 0.36);
+      this.tecla('Entrar', 'ENTRAR', 0.22, -4 * sepY - 0.02, 0.36, '#6b4a10');
+    },
+    tecla(texto, valor, x, y, ancho, color) {
+      const b = document.createElement('a-entity');
+      b.setAttribute('boton3d', { texto, ancho, alto: 0.1, color: color || '#1c3354' });
+      b.setAttribute('position', `${x} ${y} 0`);
+      b.addEventListener('click', () => this.el.emit('tecla', { valor }));
+      this.el.appendChild(b);
+    }
+  });
+
+
+  /* ---------------------------------------------------------------------
+     COMPONENTE "suelo-reticula": el piso cuadriculado de la sala.
+     --------------------------------------------------------------------- */
+  AFRAME.registerComponent('suelo-reticula', {
+    schema: { tamano: { default: 40 }, celda: { default: 1 }, color: { default: '#7a2a2a' } },
+    init() {
+      const lienzo = document.createElement('canvas');
+      lienzo.width = lienzo.height = 128;
+      const ctx = lienzo.getContext('2d');
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(0, 0, 128, 128);
+      const textura = new THREE.CanvasTexture(lienzo);
+      textura.wrapS = textura.wrapT = THREE.RepeatWrapping;
+      textura.repeat.set(this.data.tamano / this.data.celda, this.data.tamano / this.data.celda);
+      textura.anisotropy = 8;
+      this.material = new THREE.MeshBasicMaterial({ map: textura, color: this.data.color, transparent: true, opacity: 0.5, depthWrite: false });
+      const malla = new THREE.Mesh(new THREE.PlaneGeometry(this.data.tamano, this.data.tamano), this.material);
+      malla.rotation.x = -Math.PI / 2;
+      this.el.setObject3D('mesh', malla);
+    },
+    setColor(color) { this.material.color.set(color); }
+  });
+
+
+  /* ---------------------------------------------------------------------
+     COMPONENTE "sistema-archivos": convierte ARBOL en plataformas y bloques.
+     Igual que en la versión de computadora, con UNA diferencia importante:
+     cada carpeta vive dentro de su propio GRUPO (n.grupo). Así el juego puede
+     esconder carpetas completas que quedan fuera de la mesa al hacer zoom.
+     Las medidas están en "metros de maqueta"; luego todo se encoge con scale.
+     --------------------------------------------------------------------- */
+  const SEP = 1.8;        // distancia entre bloques
+  const HUECO = 1.6;      // espacio entre plataformas vecinas
+  const NIVEL = 10;       // distancia entre un nivel del árbol y el siguiente
+
+  AFRAME.registerComponent('sistema-archivos', {
+    init() {
+      this.nodos = [];
+      const fuente = document.fonts ? document.fonts.load('500 64px "IBM Plex Mono"') : Promise.resolve();
+      Promise.race([fuente, new Promise(r => setTimeout(r, 2500))])
+        .catch(() => {})
+        .then(() => {
+          this.medir(ARBOL);
+          this.colocar(ARBOL, 0, 0, null, '');
+          this.el.sceneEl.emit('sistema-listo', { raiz: ARBOL, nodos: this.nodos });
+        });
+    },
+
+    // 💡 Recursión: cada carpeta mide a sus hijas antes de medirse a sí misma
+    medir(n) {
+      const nArch = (n.archivos || []).length;
+      n.cols = Math.min(3, Math.max(1, nArch));
+      n.filas = Math.max(1, Math.ceil(nArch / 3));
+      n.w = nArch ? n.cols * SEP + 0.6 : 2.6;
+      n.d = nArch ? n.filas * SEP + 0.8 : 2.6;
+      const hijos = n.hijos || [];
+      hijos.forEach(h => this.medir(h));
+      const anchoHijos = hijos.reduce((s, h) => s + h.anchoSub, 0) + HUECO * Math.max(0, hijos.length - 1);
+      n.anchoSub = Math.max(n.w, anchoHijos);
+    },
+
+    colocar(n, x, nivel, padre, rutaPadre) {
+      n.x = x;
+      n.z = -nivel * NIVEL;
+      n.padre = padre;
+      n.ruta = rutaPadre + '/' + n.nombre;
+      n.clicables = [];
+      this.nodos.push(n);
+      const escena = this.el.sceneEl;
+
+      // El grupo de esta carpeta: TODO lo de la carpeta se mide desde aquí
+      const g = document.createElement('a-entity');
+      g.setAttribute('position', `${x} 0 ${n.z}`);
+      this.el.appendChild(g);
+      n.grupo = g;
+
+      const plat = this.crear(g, 'a-box', {
+        position: '0 0.15 0', width: n.w, height: 0.3, depth: n.d, color: '#4f5a6d', class: 'clicable'
+      });
+      n.el = plat;
+      n.clicables.push(plat);
+      plat.addEventListener('mouseenter', () => escena.emit('sobre', { nodo: n }));
+      plat.addEventListener('mouseleave', () => escena.emit('sobre', {}));
+      plat.addEventListener('click', () => escena.emit('elegir-carpeta', { nodo: n }));
+
+      // Nombre de la carpeta, inclinado para que se lea desde donde estás parado
+      this.crear(g, 'a-entity', {
+        position: `0 0.5 ${n.d / 2 + 0.7}`, rotation: '-35 0 0',
+        rotulo: { texto: n.nombre + '/', alto: 0.7, color: '#ffd98a' }
+      });
+
+      // Línea hacia la carpeta madre (medida desde el grupo de ESTA carpeta)
+      if (padre) {
+        const x1 = padre.x - x, z1 = (padre.z - padre.d / 2) - n.z;
+        const x2 = 0, z2 = n.d / 2 + 1.4;
+        const dx = x2 - x1, dz = z2 - z1, largo = Math.hypot(dx, dz);
+        this.crear(g, 'a-box', {
+          position: `${(x1 + x2) / 2} 0.02 ${(z1 + z2) / 2}`,
+          rotation: `0 ${Math.atan2(dx, dz) * 180 / Math.PI} 0`,
+          width: 0.12, height: 0.03, depth: largo,
+          material: 'shader: flat; color: #9fb4d0'
+        });
+      }
+
+      // Archivos en cuadrícula de 3 columnas (i % 3 = columna, i / 3 = fila)
+      (n.archivos || []).forEach((a, i) => {
+        const col = i % 3, fila = Math.floor(i / 3);
+        const fx = -(n.cols - 1) * SEP / 2 + col * SEP;
+        const fz = -(n.filas - 1) * SEP / 2 + fila * SEP - 0.2;
+        const tipo = TIPOS[extension(a.nombre)] || TIPOS.txt;
+        a.dir = n;
+        a.tipo = tipo;
+        a.el = this.crear(g, 'a-box', {
+          position: `${fx} ${0.3 + a.tam / 2} ${fz}`, width: 0.8, height: a.tam, depth: 0.8,
+          color: tipo.color, class: 'clicable'
+        });
+        n.clicables.push(a.el);
+        a.el.addEventListener('mouseenter', () => { a.el.object3D.scale.set(1.12, 1.03, 1.12); escena.emit('sobre', { archivo: a }); });
+        a.el.addEventListener('mouseleave', () => { a.el.object3D.scale.set(1, 1, 1); escena.emit('sobre', {}); });
+        a.el.addEventListener('click', () => escena.emit('elegir-archivo', { archivo: a }));
+        this.crear(g, 'a-entity', {
+          position: `${fx} 0.5 ${fz + 0.65}`, rotation: '-35 0 0',
+          rotulo: { texto: a.nombre, alto: 0.3 }
+        });
+      });
+
+      const hijos = n.hijos || [];
+      const total = hijos.reduce((s, h) => s + h.anchoSub, 0) + HUECO * Math.max(0, hijos.length - 1);
+      let cursor = x - total / 2;
+      hijos.forEach(h => {
+        this.colocar(h, cursor + h.anchoSub / 2, nivel + 1, n, n.ruta);
+        cursor += h.anchoSub + HUECO;
+      });
+    },
+
+    crear(padre, etiqueta, atributos) {
+      const e = document.createElement(etiqueta);
+      for (const k in atributos) e.setAttribute(k, atributos[k]);
+      padre.appendChild(e);
+      return e;
+    }
+  });
+
+
+  /* ---------------------------------------------------------------------
+     COMPONENTE "reloj-juego": llama a window.alTick en cada cuadro.
+     💡 ¿Por qué? Dentro del visor, el navegador PAUSA requestAnimationFrame
+        (el que usaba la versión de computadora). El tick() de A-Frame sí sigue
+        corriendo en VR, así que el reloj del juego se cuelga de aquí.
+     --------------------------------------------------------------------- */
+  AFRAME.registerComponent('reloj-juego', {
+    tick() { if (window.alTick) window.alTick(); }
+  });
+  </script>
+</head>
+<body>
+
+<!-- ================================================================
+     PORTADA DE HTML (se ve en el navegador, antes de entrar al visor)
+     💡 Los navegadores exigen un clic de la persona para entrar a VR y para
+        encender el sonido. Por eso existe esta pantalla.
+     ================================================================ -->
+<div id="portada">
+  <div class="tarjeta">
+    <h1>Reserva Isla Nublar</h1>
+    <p class="sub">Sistema de control del centro de visitantes, edición para visor</p>
+    <p>Estás de pie en la sala de control. Sobre la mesa, el sistema de archivos del parque
+       flota como una maqueta. Apunta con el láser y aprieta el gatillo para usarlo.</p>
+    <p>Tienes tres minutos para volver a cerrar la puerta.</p>
+    <div class="botones">
+      <button id="btn-vr" class="principal">Entrar al visor</button>
+      <button id="btn-pantalla">Jugar en la computadora</button>
+    </div>
+    <p id="aviso-vr" role="status"></p>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     3) LA ESCENA
+       cursor + raycaster en la escena: el mouse de la computadora
+       reloj-juego: el bucle del reloj (ver el componente)
+     ================================================================ -->
+<a-scene cursor="rayOrigin: mouse" raycaster="objects: .clicable"
+         background="color: #07101f" fog="type: exponential; color: #07101f; density: 0.06"
+         reloj-juego loading-screen="dotsColor: #f0a830; backgroundColor: #07101f">
+
+  <!-- EL JUGADOR
+       En la computadora el rig está un poco atrás y arriba para ver la mesa completa.
+       Al entrar al visor lo regresamos a 0 0 0: la altura la pone tu cabeza de verdad. -->
+  <a-entity id="rig" position="0 0.25 0.6">
+    <a-entity id="camara" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
+    <!-- Manos: laser-controls dibuja el láser y reconoce el gatillo del Quest.
+         El raycaster solo toca objetos con la clase "clicable", hasta 6 m. -->
+    <a-entity id="mano-izq" laser-controls="hand: left"  raycaster="objects: .clicable; far: 6; lineColor: #f0a830; lineOpacity: 0.7"></a-entity>
+    <a-entity id="mano-der" laser-controls="hand: right" raycaster="objects: .clicable; far: 6; lineColor: #f0a830; lineOpacity: 0.7"></a-entity>
+  </a-entity>
+
+  <!-- Marca en el piso: aquí te paras -->
+  <a-ring position="0 0.01 0" rotation="-90 0 0" radius-inner="0.32" radius-outer="0.36" material="shader: flat; color: #f0a830; opacity: 0.6"></a-ring>
+
+  <!-- LUCES (el juego las cambia al restaurar la energía) -->
+  <a-entity id="luz-amb" light="type: ambient; color: #6a4a52; intensity: 0.7"></a-entity>
+  <a-entity id="luz-dir" light="type: directional; color: #ffffff; intensity: 0.3" position="-2 4 2"></a-entity>
+  <a-entity id="luz-emerg" light="type: point; color: #ff3b2f; intensity: 6; distance: 14; decay: 1" position="0 3 -1.5"
+            animation="property: light.intensity; from: 2; to: 9; dir: alternate; loop: true; dur: 900; easing: easeInOutSine"></a-entity>
+
+  <a-entity id="suelo" suelo-reticula></a-entity>
+
+  <!-- LA MESA DEL PROYECTOR (✏️ puedes cambiar colores o tamaño; si cambias
+       el tamaño, ajusta también ANCHO_MESA y FONDO_MESA en el juego) -->
+  <a-box position="0 0.46 -1.15" width="2.3" height="0.92" depth="1.7" color="#1a2438"></a-box>
+  <a-plane position="0 0.925 -1.15" rotation="-90 0 0" width="2.2" height="1.6"
+           material="shader: flat; color: #2a6fb8; opacity: 0.28; transparent: true"></a-plane>
+
+  <!-- LA MAQUETA: "maqueta" está en el centro de la mesa y se encoge con scale.
+       "contenido" se desliza para que la carpeta elegida quede en el centro.
+       💡 Mover y escalar la maqueta en vez de mover al jugador = cero mareo. -->
+  <a-entity id="maqueta" position="0 0.93 -1.15" scale="0.03 0.03 0.03">
+    <a-entity id="contenido" sistema-archivos></a-entity>
+  </a-entity>
+
+  <!-- PANTALLAS 3D (el juego dibuja en ellas) -->
+  <a-entity id="pan-estado"  pantalla="ancho: 1.8; alto: 0.3; resolucion: 700" position="0 2.05 -1.8" rotation="12 0 0"></a-entity>
+  <a-entity id="pan-info"    pantalla="ancho: 1.6; alto: 0.1; resolucion: 700; conFondo: false" position="0 1.82 -1.78" rotation="12 0 0"></a-entity>
+  <a-entity id="pan-consola" pantalla="ancho: 1.1; alto: 0.78; resolucion: 900" position="-1.4 1.45 -0.8" rotation="0 45 0"></a-entity>
+
+  <a-entity id="visor" position="1.4 1.45 -0.8" rotation="0 -45 0" visible="false">
+    <a-entity id="pan-visor" pantalla="ancho: 1.1; alto: 0.78; resolucion: 800"></a-entity>
+    <a-entity id="btn-cerrar-visor" boton3d="texto: Cerrar; ancho: 0.3; alto: 0.1" position="0.38 -0.47 0"></a-entity>
+  </a-entity>
+
+  <!-- Botones de navegación en la orilla de la mesa -->
+  <a-entity id="btn-subir"   boton3d="texto: Subir un nivel; ancho: 0.46; alto: 0.12" position="-0.3 1.0 -0.32" rotation="-45 0 0"></a-entity>
+  <a-entity id="btn-general" boton3d="texto: Vista general; ancho: 0.46; alto: 0.12"  position="0.3 1.0 -0.32" rotation="-45 0 0"></a-entity>
+
+  <!-- Ventana de mensajes (inicio y final) con su botón -->
+  <a-entity id="mensaje" position="0 1.5 -0.95">
+    <a-entity id="pan-mensaje" pantalla="ancho: 1.4; alto: 0.78; resolucion: 700"></a-entity>
+    <a-entity id="btn-mensaje" boton3d="texto: Iniciar sistema; ancho: 0.5; alto: 0.13; color: #6b4a10" position="0 -0.3 0.01"></a-entity>
+  </a-entity>
+
+  <!-- Teclado para la clave (escondido hasta que se necesita) -->
+  <a-entity id="zona-clave" position="0 1.38 -0.55" rotation="-30 0 0" visible="false">
+    <a-entity id="pan-clave" pantalla="ancho: 1.0; alto: 0.24; resolucion: 700" position="0 0.2 0"></a-entity>
+    <a-entity id="teclado" teclado></a-entity>
+  </a-entity>
+</a-scene>
+
+
+<script>
+/* =====================================================================
+   4) EL JUEGO
+   Las reglas son las mismas que en la versión de computadora. Lo nuevo es
+   que todo lo que se "ve" se dibuja en pantallas 3D en lugar de HTML.
+   ===================================================================== */
+
+/* ---------- Atajos ---------- */
+const escena = document.querySelector('a-scene');
+const $ = id => document.getElementById(id);
+const pantalla = id => $(id).components.pantalla;   // atajo para dibujar en una pantalla
+
+const DURACION = 180;           // ✏️ segundos para ganar
+const METROS_INICIALES = 60;    // ✏️ a qué distancia empiezan los raptores
+const ANCHO_MESA = 2.0;         // metros de mesa que puede ocupar la maqueta
+const FONDO_MESA = 1.4;
+const ZOOM_MAXIMO = 0.22;       // ✏️ qué tan grande puede verse una carpeta de cerca
+
+/* ---------- Estado del juego (escribe J en la consola F12 para verlo) ---------- */
+const J = {
+  activo: false, fin: false, inicio: 0, restante: DURACION,
+  energia: false, arrancando: false,
+  desbloqueadas: new Set(),
+  dirActual: null,
+  avisosDados: new Set(),
+  pendiente: null,             // carpeta que espera clave + qué hacer después
+  claveEscrita: '', claveError: '',
+  accionMensaje: null,         // qué hace el botón de la ventana de mensajes
+  ultimoSeg: -1, ultimoM: -1
+};
+let RAIZ = null, NODOS = [];
+let lineasConsola = [];        // la consola guarda aquí sus líneas: { t: texto, c: color }
+
+
+/* ---------- Mostrar y esconder cosas en VR ----------
+   💡 Esconder algo (visible = false) NO impide que el láser lo toque.
+      Por eso, además de esconderlo, le quitamos la clase "clicable"
+      a todos sus botones, y se la regresamos al mostrarlo. */
+function ver(el, si) {
+  el.object3D.visible = si;
+  el.querySelectorAll('[boton3d]').forEach(b => b.classList.toggle('clicable', si));
+  if (el.hasAttribute('boton3d')) el.classList.toggle('clicable', si);
+}
+
+
+/* ---------- Ayudantes para dibujar texto en los canvas ----------
+   envolver() parte un texto largo en renglones que quepan en "anchoMax" pixeles,
+   midiendo palabra por palabra con measureText. */
+function envolver(ctx, texto, anchoMax) {
+  const renglones = [];
+  texto.split('\n').forEach(parrafo => {
+    if (!parrafo) { renglones.push(''); return; }
+    let linea = '';
+    parrafo.split(' ').forEach(palabra => {
+      const prueba = linea ? linea + ' ' + palabra : palabra;
+      if (ctx.measureText(prueba).width > anchoMax && linea) { renglones.push(linea); linea = palabra; }
+      else linea = prueba;
+    });
+    renglones.push(linea);
+  });
+  return renglones;
+}
+
+
+/* ---------- Pantalla: consola ---------- */
+const COLOR_CLASE = { cmd: C.verde, error: C.rojo, aviso: C.ambar, tenue: C.tenue };
+function escribir(texto, clase) {
+  lineasConsola.push({ t: texto, c: COLOR_CLASE[clase] || C.texto });
+  if (lineasConsola.length > 40) lineasConsola.shift();
+  dibujarConsola();
+}
+function dibujarConsola() {
+  const p = pantalla('pan-consola'); if (!p) return;
+  const ctx = p.ctx, W = p.lienzo.width, H = p.lienzo.height;
+  p.limpiar();
+  ctx.font = '400 28px ' + MONO;
+  ctx.textBaseline = 'top';
+  // Convertimos cada línea en renglones y nos quedamos con los últimos que caben
+  const renglones = [];
+  lineasConsola.forEach(l => envolver(ctx, l.t, W - 48).forEach(r => renglones.push({ t: r, c: l.c })));
+  const alto = 38, caben = Math.floor((H - 40) / alto);
+  renglones.slice(-caben).forEach((r, i) => { ctx.fillStyle = r.c; ctx.fillText(r.t, 24, 20 + i * alto); });
+  p.listo();
+}
+
+/* ---------- Pantalla: estado (ruta, energía, distancia, reloj) ---------- */
+function dibujarEstado() {
+  const p = pantalla('pan-estado'); if (!p) return;
+  const ctx = p.ctx, W = p.lienzo.width;
+  p.limpiar();
+  ctx.textBaseline = 'middle';
+  // Renglón 1: la ruta, como un prompt de Unix
+  const ruta = J.dirActual ? J.dirActual.ruta : '/' + ARBOL.nombre;
+  ctx.font = '500 34px ' + MONO;
+  ctx.fillStyle = C.verde;
+  ctx.fillText('ruiz@control', 28, 60);
+  ctx.fillStyle = C.texto;
+  ctx.fillText(':' + ruta + ' $', 28 + ctx.measureText('ruiz@control').width, 60);
+  // Renglón 2: energía, barra de distancia y reloj
+  ctx.font = '600 36px ' + SANS;
+  ctx.fillStyle = C.texto;
+  ctx.fillText('Energía:', 28, 145);
+  ctx.fillStyle = J.energia ? C.verde : C.rojo;
+  ctx.fillText(J.energia ? 'normal' : 'emergencia', 28 + ctx.measureText('Energía: ').width, 145);
+  // La barra empieza después del texto de energía, para que nunca se encimen
+  const m = metros(), bw = 300;
+  const bx = 28 + ctx.measureText('Energía: emergencia').width + 60 + ctx.measureText('Pasillo ').width;
+  ctx.fillStyle = C.texto;
+  ctx.fillText('Pasillo', bx - ctx.measureText('Pasillo ').width, 145);
+  ctx.strokeStyle = C.tenue; ctx.lineWidth = 3;
+  ctx.strokeRect(bx, 130, bw, 30);
+  ctx.fillStyle = m <= 15 ? C.rojo : C.ambar;
+  ctx.fillRect(bx + 4, 134, (bw - 8) * J.restante / DURACION, 22);
+  ctx.font = '500 34px ' + MONO;
+  ctx.fillStyle = C.texto;
+  ctx.fillText(m + ' m', bx + bw + 20, 145);
+  const seg = Math.ceil(J.restante);
+  ctx.font = '500 56px ' + MONO;
+  ctx.textAlign = 'right';
+  ctx.fillText(Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0'), W - 30, 140);
+  ctx.textAlign = 'left';
+  p.listo();
+}
+
+/* ---------- Pantalla: info (al apuntarle a algo) ---------- */
+function dibujarInfo(texto) {
+  const p = pantalla('pan-info'); if (!p) return;
+  const ctx = p.ctx, W = p.lienzo.width, H = p.lienzo.height;
+  p.limpiar();
+  if (texto) {
+    ctx.font = '500 34px ' + MONO;
+    const w = ctx.measureText(texto).width + 40;
+    ctx.fillStyle = C.fondo;
+    ctx.fillRect((W - w) / 2, 4, w, H - 8);
+    ctx.fillStyle = C.texto;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(texto, W / 2, H / 2 + 2);
+    ctx.textAlign = 'left';
+  }
+  p.listo();
+}
+
+/* ---------- Pantalla: visor de archivos ---------- */
+function mostrar(titulo, texto) {
+  const p = pantalla('pan-visor');
+  const ctx = p.ctx, W = p.lienzo.width;
+  p.limpiar();
+  ctx.textBaseline = 'top';
+  ctx.font = '500 34px ' + MONO;
+  ctx.fillStyle = C.ambar;
+  ctx.fillText(titulo, 28, 24);
+  ctx.fillStyle = C.borde;
+  ctx.fillRect(0, 76, W, 3);
+  ctx.font = '400 30px ' + MONO;
+  ctx.fillStyle = C.texto;
+  envolver(ctx, texto, W - 56).forEach((r, i) => ctx.fillText(r, 28, 100 + i * 42));
+  p.listo();
+  ver($('visor'), true);
+}
+
+/* ---------- Pantalla: mensajes grandes (inicio y final) ---------- */
+function mostrarMensaje(titulo, texto, textoBoton, accion) {
+  const p = pantalla('pan-mensaje');
+  const ctx = p.ctx, W = p.lienzo.width;
+  p.limpiar();
+  ctx.textBaseline = 'top';
+  ctx.font = '600 64px ' + SANS;
+  ctx.fillStyle = C.texto;
+  ctx.fillText(titulo, 40, 36);
+  ctx.font = '400 32px ' + SANS;
+  envolver(ctx, texto, W - 80).forEach((r, i) => ctx.fillText(r, 40, 126 + i * 44));
+  p.listo();
+  $('btn-mensaje').querySelector('[rotulo]').setAttribute('rotulo', 'texto', textoBoton);
+  J.accionMensaje = accion;
+  ver($('mensaje'), true);
+  mostrarMaqueta(false);
+}
+
+
+/* ---------- Sonidos sintetizados (igual que en la versión de computadora) ---------- */
+let audio = null;
+function ctxAudio() {
+  if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+  if (audio.state !== 'running') audio.resume();
+  return audio;
+}
+function tono(frec, dur, tipo = 'square', vol = 0.05, retraso = 0) {
+  const a = ctxAudio(); if (!a) return;
+  const t = a.currentTime + retraso;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = tipo; o.frequency.setValueAtTime(frec, t);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+}
+function ruido(dur, frecFiltro, tipoFiltro, vol, retraso = 0) {
+  const a = ctxAudio(); if (!a) return;
+  const t = a.currentTime + retraso;
+  const buf = a.createBuffer(1, Math.ceil(a.sampleRate * dur), a.sampleRate);
+  const datos = buf.getChannelData(0);
+  for (let i = 0; i < datos.length; i++) datos[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  src.buffer = buf; f.type = tipoFiltro; f.frequency.value = frecFiltro;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(a.destination); src.start(t); src.stop(t + dur + 0.05);
+}
+const sonido = {
+  clic:    () => tono(880, 0.06, 'square', 0.03),
+  error:   () => { tono(140, 0.25, 'sawtooth', 0.06); tono(110, 0.3, 'sawtooth', 0.06, 0.12); },
+  exito:   () => [523, 659, 784, 1046].forEach((f, i) => tono(f, 0.2, 'triangle', 0.07, i * 0.1)),
+  arranque:() => [220, 277, 330, 440, 554, 660].forEach((f, i) => tono(f, 0.35, 'sawtooth', 0.04, i * 0.4)),
+  gruñido: () => { ruido(1.3, 260, 'lowpass', 0.5); tono(62, 1.1, 'sawtooth', 0.05); },
+  golpe:   () => { tono(55, 0.25, 'sine', 0.5); tono(50, 0.25, 'sine', 0.5, 0.35); },
+  rasguño: () => { for (let i = 0; i < 6; i++) ruido(0.07, 2800, 'highpass', 0.25, i * 0.11); }
+};
+
+/* ---------- Vibración de los controles ----------
+   💡 tracked-controls (lo agrega laser-controls) guarda el control real del Quest.
+      Su "gamepad" tiene un motor de vibración: pulse(fuerza de 0 a 1, milisegundos).
+      Va dentro de try/catch porque en la computadora no hay controles. */
+function vibrar(fuerza = 0.3, ms = 40) {
+  ['mano-izq', 'mano-der'].forEach(id => {
+    try {
+      const tc = $(id).components['tracked-controls'];
+      const gp = tc && tc.controller && tc.controller.gamepad;
+      const motor = gp && gp.hapticActuators && gp.hapticActuators[0];
+      if (motor) motor.pulse(fuerza, ms);
+    } catch (e) {}
+  });
+}
+
+
+/* ---------- Zoom de la maqueta (lo que reemplaza al "vuelo" de la cámara) ----------
+   Queremos que el punto (fx, fz) de la maqueta quede en el centro de la mesa,
+   con un tamaño que quepa en ANCHO_MESA x FONDO_MESA.
+   💡 La cuenta: si la carpeta mide 7 m de ancho y la mesa 2 m, la escala es 2 / 7.
+      Luego movemos "contenido" al revés (-fx, -fz) para centrar ese punto.
+   Después escondemos las carpetas que quedarían fuera de la mesa, para que no
+   te atraviesen el cuerpo ni estorben al láser. */
+function enfocar(fx, fz, anchoV, fondoV, inmediato) {
+  J.enfoque = [fx, fz, anchoV, fondoV];   // lo recordamos para mostrarMaqueta()
+  const s = Math.min(ANCHO_MESA / anchoV, FONDO_MESA / fondoV, ZOOM_MAXIMO);
+  const maqueta = $('maqueta'), contenido = $('contenido');
+  const escala = `${s} ${s} ${s}`, pos = `${-fx} 0 ${-fz}`;
+  if (inmediato) {
+    maqueta.setAttribute('scale', escala);
+    contenido.setAttribute('position', pos);
+  } else {
+    maqueta.setAttribute('animation__zoom', { property: 'scale', to: escala, dur: 900, easing: 'easeInOutCubic' });
+    contenido.setAttribute('animation__mover', { property: 'position', to: pos, dur: 900, easing: 'easeInOutCubic' });
+  }
+  // ¿Qué carpetas caben sobre la mesa con este zoom?
+  NODOS.forEach(n => {
+    const dx = (n.x - fx) * s, dz = (n.z - fz) * s;
+    const medioAncho = (n.w / 2) * s, medioFondo = (n.d / 2 + 1.4) * s;
+    const cabe = Math.abs(dx) - medioAncho < ANCHO_MESA / 2 + 0.25 &&
+                 dz - medioFondo < FONDO_MESA / 2 + 0.1 &&
+                 dz + medioFondo > -FONDO_MESA / 2 - 0.4;
+    n.grupo.object3D.visible = cabe;
+    n.clicables.forEach(c => c.classList.toggle('clicable', cabe));
+  });
+}
+// Esconde la maqueta mientras hay un mensaje grande, para que sus bloques no
+// tapen el botón (y el láser no los toque por accidente)
+function mostrarMaqueta(si) {
+  $('maqueta').object3D.visible = si;
+  if (si && J.enfoque) enfocar(...J.enfoque, true);
+  if (!si) NODOS.forEach(n => n.clicables.forEach(c => c.classList.remove('clicable')));
+}
+function vistaGeneral(inmediato) {
+  J.dirActual = null;
+  dibujarEstado();
+  enfocar(0, -NIVEL, RAIZ.anchoSub + 1, 2 * NIVEL + 6, inmediato);
+}
+
+
+/* ---------- Navegar carpetas (igual que antes, pero con enfocar en vez de volar) ---------- */
+const bloqueada = n => n.clave && !J.desbloqueadas.has(n);
+
+function entrarCarpeta(n, silencioso) {
+  if (J.dirActual !== n || !silencioso) {
+    J.dirActual = n;
+    dibujarEstado();
+    if (n.archivos) enfocar(n.x, n.z, n.w + 1, n.d + 3);
+    else enfocar(n.x, n.z - NIVEL / 2, n.anchoSub + 1, NIVEL + 6);
+    escribir('$ cd ' + n.ruta, 'cmd');
+  }
+  if (bloqueada(n)) {
+    escribir('cd: permiso denegado. Se requiere clave.', 'error');
+    sonido.error();
+    vibrar(0.6, 120);
+    pedirClave(n, () => listar(n));
+    return false;
+  }
+  if (!silencioso) listar(n);
+  return true;
+}
+function listar(n) {
+  const nombres = [...(n.hijos || []).map(h => h.nombre + '/'), ...(n.archivos || []).map(a => a.nombre)];
+  escribir(nombres.join('   '), 'tenue');
+}
+function subir() {
+  if (!J.dirActual) return;
+  if (J.dirActual.padre) entrarCarpeta(J.dirActual.padre);
+  else { vistaGeneral(); escribir('$ cd /' + ARBOL.nombre, 'cmd'); listar(RAIZ); }
+}
+
+
+/* ---------- Clave con el teclado 3D ----------
+   💡 Callback: "despues" se guarda y solo se ejecuta si la clave es correcta. */
+function pedirClave(n, despues) {
+  J.pendiente = { nodo: n, despues };
+  J.claveEscrita = '';
+  J.claveError = '';
+  dibujarClave();
+  ver($('zona-clave'), true);
+}
+function dibujarClave() {
+  const p = pantalla('pan-clave');
+  const ctx = p.ctx, W = p.lienzo.width;
+  p.limpiar();
+  ctx.textBaseline = 'middle';
+  ctx.font = '500 28px ' + SANS;
+  ctx.fillStyle = C.tenue;
+  ctx.fillText('Clave para ' + (J.pendiente ? J.pendiente.nodo.ruta : ''), 24, 34);
+  ctx.font = '500 48px ' + MONO;
+  ctx.fillStyle = C.texto;
+  ctx.fillText((J.claveEscrita || '') + '_', 24, 92);
+  if (J.claveError) {
+    ctx.font = '500 26px ' + SANS;
+    ctx.fillStyle = C.rojo;
+    ctx.textAlign = 'right';
+    ctx.fillText(J.claveError, W - 24, 140);
+    ctx.textAlign = 'left';
+  }
+  p.listo();
+}
+function tecla(valor) {
+  if (!J.pendiente) return;
+  sonido.clic();
+  vibrar(0.2, 25);
+  if (valor === 'CANCELAR') { cerrarClave(); return; }
+  if (valor === 'BORRAR') J.claveEscrita = J.claveEscrita.slice(0, -1);
+  else if (valor === 'ENTRAR') { revisarClave(); return; }
+  else if (J.claveEscrita.length < 12) J.claveEscrita += valor;
+  J.claveError = '';
+  dibujarClave();
+}
+function revisarClave() {
+  const p = J.pendiente;
+  if (!J.claveEscrita) { J.claveError = 'Escribe una clave primero.'; dibujarClave(); return; }
+  if (J.claveEscrita !== p.nodo.clave) {
+    J.claveError = 'Clave incorrecta. Busca pistas en el personal.';
+    sonido.error();
+    vibrar(0.6, 150);
+    dibujarClave();
+    return;
+  }
+  J.desbloqueadas.add(p.nodo);
+  pintarPlataformas();
+  cerrarClave();
+  escribir('Acceso concedido a ' + p.nodo.ruta, 'aviso');
+  sonido.exito();
+  p.despues();
+}
+function cerrarClave() {
+  J.pendiente = null;
+  ver($('zona-clave'), false);
+}
+
+
+/* ---------- Ejecutar archivos ---------- */
+function abrirArchivo(a) {
+  const ext = extension(a.nombre);
+  const comando = (ext === 'exe' || ext === 'bat') ? './' + a.nombre
+                : ext === 'lck' ? 'lockctl ' + a.nombre
+                : ext === 'cam' ? 'camview ' + a.nombre
+                : 'cat ' + a.nombre;
+  escribir('$ ' + comando, 'cmd');
+  const regla = REGLAS[a.accion];
+  if (regla) regla(a);
+  else mostrar(a.nombre, a.texto || '(archivo vacío)');
+}
+
+// ✏️ Reglas especiales. Agrega una función aquí y úsala con "accion" en el ARBOL.
+const REGLAS = {
+  energia() {
+    if (J.energia) { escribir('El generador principal ya está funcionando.', 'tenue'); return; }
+    if (J.arrancando) return;
+    J.arrancando = true;
+    sonido.arranque();
+    const pasos = ['Verificando interruptores...', 'Arrancando generador principal...', '3', '2', '1'];
+    pasos.forEach((p, i) => setTimeout(() => { if (!J.fin && J.arrancando) { escribir(p, 'aviso'); vibrar(0.15 + i * 0.1, 80); } }, i * 500));
+    setTimeout(() => { if (!J.fin && J.arrancando) restaurarEnergia(); }, pasos.length * 500);
+  },
+  puertaControl() {
+    if (!J.energia) {
+      escribir('lockctl: los cerrojos magnéticos no responden. No hay energía.', 'error');
+      sonido.error();
+      vibrar(0.6, 150);
+      return;
+    }
+    escribir('Cerrojos magnéticos de la sala de control: ACTIVOS', 'aviso');
+    terminar(true);
+  },
+  cerrar(a) {
+    if (!J.energia) { escribir('lockctl: sin energía en las cerraduras.', 'error'); sonido.error(); return; }
+    mostrar(a.nombre, a.texto);
+  },
+  camPasillo(a) {
+    const m = metros();
+    const texto = m > 40 ? `Pasillo B: movimiento detectado a ${m} m de la sala de control.\nDemasiado rápido para ser una persona.`
+                : m > 15 ? `Pasillo B: tres siluetas a ${m} m.\nSe mueven por turnos, como si se cubrieran entre ellas.`
+                : 'Pasillo B: vacío.\nEso significa que ya están frente a tu puerta.';
+    mostrar(a.nombre, texto);
+  },
+  arcade(a) {
+    mostrar(a.nombre, 'INSERTE MONEDA\n\n...\n\nNo es momento para jugar.\n(Aunque esto podría ser un buen juego.)');
+  },
+  launchgame(a) {
+    mostrar(a.nombre, 'MINECRAFT\nJugar\nOpciones\nMultijugador\nSalir\n\n(Se me olvidó la crisis jugando).\n-10 segundos.');
+    // El reloj se recalcula en cada cuadro a partir de J.inicio, así que para
+    // quitar tiempo adelantamos la hora de inicio 10 s (10000 ms) hacia el pasado.
+    J.inicio -= 10 * 1000;
+  }
+};
+
+// Luces y colores: con energía (azul) o en emergencia (rojo)
+function ponerEnergia(si) {
+  J.energia = si;
+  const emerg = $('luz-emerg');
+  if (si) {
+    emerg.removeAttribute('animation');
+    emerg.setAttribute('light', 'intensity', 0);
+    $('luz-amb').setAttribute('light', { color: '#c9d8ff', intensity: 1.0 });
+    $('luz-dir').setAttribute('light', 'intensity', 1.0);
+    $('suelo').components['suelo-reticula'].setColor('#3f86d6');
+  } else {
+    emerg.setAttribute('animation', 'property: light.intensity; from: 2; to: 9; dir: alternate; loop: true; dur: 900; easing: easeInOutSine');
+    $('luz-amb').setAttribute('light', { color: '#6a4a52', intensity: 0.7 });
+    $('luz-dir').setAttribute('light', 'intensity', 0.3);
+    $('suelo').components['suelo-reticula'].setColor('#7a2a2a');
+  }
+  pintarPlataformas();
+  dibujarEstado();
+}
+function restaurarEnergia() {
+  J.arrancando = false;
+  ponerEnergia(true);
+  escribir('ENERGÍA RESTAURADA. Cerraduras magnéticas en línea.', 'aviso');
+  sonido.exito();
+  vibrar(0.8, 200);
+}
+function pintarPlataformas() {
+  NODOS.forEach(n => n.el.setAttribute('color', bloqueada(n) ? '#8a3e48' : (J.energia ? '#8394ad' : '#4f5a6d')));
+}
+
+
+/* ---------- El reloj (lo llama el componente reloj-juego en cada cuadro) ---------- */
+const metros = () => Math.max(0, Math.ceil(METROS_INICIALES * J.restante / DURACION));
+const EVENTOS = [   // ✏️ cosas que pasan cuando los raptores llegan a cierta distancia
+  { m: 45, texto: 'camview: movimiento en el pasillo B.', sonido: 'gruñido', vibra: 0.4 },
+  { m: 30, texto: 'Algo golpeó la puerta del pasillo B.', sonido: 'golpe', vibra: 1.0 },
+  { m: 15, texto: 'Se oyen rasguños del otro lado de la puerta.', sonido: 'rasguño', vibra: 0.5 },
+  { m: 5,  texto: 'La manija de la puerta de la sala de control se está moviendo.', sonido: 'gruñido', vibra: 0.8 }
+];
+window.alTick = function () {
+  if (!J.activo) return;
+  J.restante = Math.max(0, DURACION - (performance.now() - J.inicio) / 1000);
+  const seg = Math.ceil(J.restante), m = metros();
+  // Solo redibujamos la pantalla cuando cambia un número (dibujar cuesta)
+  if (seg !== J.ultimoSeg || m !== J.ultimoM) { J.ultimoSeg = seg; J.ultimoM = m; dibujarEstado(); }
+  EVENTOS.forEach(ev => {
+    if (m <= ev.m && !J.avisosDados.has(ev)) {
+      J.avisosDados.add(ev);
+      escribir(ev.texto, 'error');
+      sonido[ev.sonido]();
+      vibrar(ev.vibra, 300);
+    }
+  });
+  if (J.restante <= 0) terminar(false);
+};
+
+
+/* ---------- Principio, fin y volver a empezar ----------
+   💡 En VR no podemos recargar la página (te sacaría del visor), así que
+      reiniciar() regresa cada parte del estado a como estaba al principio. */
+function iniciar() {
+  ctxAudio();
+  ver($('mensaje'), false);
+  mostrarMaqueta(true);
+  J.activo = true;
+  J.inicio = performance.now();
+  escribir('Sistema de control IA-7, versión 2.1', 'tenue');
+  escribir('ADVERTENCIA: funcionando con energía de emergencia.', 'error');
+  escribir('Cerraduras magnéticas: sin energía.', 'error');
+  escribir('Apunta a una plataforma para abrir esa carpeta.', 'tenue');
+}
+function terminar(gano) {
+  if (J.fin) return;
+  J.fin = true; J.activo = false;
+  cerrarClave();
+  ver($('visor'), false);
+  const seg = Math.ceil(J.restante);
+  if (gano) {
+    sonido.exito();
+    vibrar(0.5, 150);
+    setTimeout(sonido.rasguño, 900);
+    let mejor = 0, record = '';
+    try { mejor = Number(localStorage.getItem('isla-ambar-vr-mejor')) || 0; } catch (e) {}
+    if (seg > mejor) {
+      try { localStorage.setItem('isla-ambar-vr-mejor', String(seg)); } catch (e) {}
+      record = 'Nuevo récord en este navegador.';
+    } else record = `Tu mejor marca: ${mejor} segundos de sobra.`;
+    mostrarMensaje('Puerta asegurada',
+      `Los cerrojos se activaron con ${seg} segundos de sobra. Del otro lado de la puerta, algo sigue rasguñando.\n\n${record}`,
+      'Jugar de nuevo', reiniciar);
+  } else {
+    sonido.gruñido();
+    vibrar(1.0, 600);
+    mostrarMensaje('Demasiado tarde',
+      J.energia ? 'Restauraste la energía, pero la puerta seguía abierta. La cerradura de la sala de control estaba a un clic.'
+                : 'La puerta se abrió. Sin energía, ninguna cerradura del edificio podía responder.',
+      'Jugar de nuevo', reiniciar);
+  }
+}
+function reiniciar() {
+  Object.assign(J, { activo: false, fin: false, restante: DURACION, arrancando: false, pendiente: null, ultimoSeg: -1, ultimoM: -1 });
+  J.desbloqueadas.clear();
+  J.avisosDados.clear();
+  lineasConsola = [];
+  dibujarConsola();
+  ponerEnergia(false);
+  vistaGeneral();
+  iniciar();
+}
+
+
+/* ---------- Conectamos todo ---------- */
+escena.addEventListener('sistema-listo', e => {
+  RAIZ = e.detail.raiz;
+  NODOS = e.detail.nodos;
+  pintarPlataformas();
+  vistaGeneral(true);
+  dibujarConsola();
+  dibujarInfo('');
+  ver($('visor'), false);
+  ver($('zona-clave'), false);
+  mostrarMensaje('Reserva Isla Nublar',
+    'La tormenta tumbó la energía y las cerraduras de la sala de control quedaron abiertas. En la cámara del pasillo se ve algo acercándose.\n\nApunta a las plataformas para abrir carpetas y a los bloques para abrir archivos. La altura de cada bloque es su tamaño.',
+    'Iniciar sistema', iniciar);
+});
+
+escena.addEventListener('sobre', e => {
+  const { nodo, archivo } = e.detail;
+  if (archivo) dibujarInfo(`${archivo.nombre}   ${archivo.tipo.nombre}, ${Math.round(archivo.tam * 37)} KB`);
+  else if (nodo) {
+    const cuantos = (nodo.hijos || []).length + (nodo.archivos || []).length;
+    dibujarInfo(`${nodo.ruta}/   ${cuantos} elementos${bloqueada(nodo) ? ', protegida' : ''}`);
+  } else dibujarInfo('');
+});
+
+escena.addEventListener('elegir-carpeta', e => {
+  if (!J.activo || J.pendiente) return;
+  sonido.clic(); vibrar();
+  entrarCarpeta(e.detail.nodo);
+});
+
+escena.addEventListener('elegir-archivo', e => {
+  if (!J.activo || J.pendiente) return;
+  const a = e.detail.archivo;
+  sonido.clic(); vibrar();
+  if (bloqueada(a.dir)) { entrarCarpeta(a.dir); return; }
+  entrarCarpeta(a.dir, true);
+  abrirArchivo(a);
+});
+
+// Botones 3D
+$('btn-mensaje').addEventListener('click', () => { if (J.accionMensaje) { sonido.clic(); vibrar(); J.accionMensaje(); } });
+$('btn-subir').addEventListener('click', () => { if (J.activo && !J.pendiente) { sonido.clic(); vibrar(); subir(); } });
+$('btn-general').addEventListener('click', () => {
+  if (!J.activo || J.pendiente) return;
+  sonido.clic(); vibrar();
+  vistaGeneral();
+  escribir('$ cd /' + ARBOL.nombre, 'cmd');
+  listar(RAIZ);
+});
+$('btn-cerrar-visor').addEventListener('click', () => { sonido.clic(); ver($('visor'), false); });
+$('teclado').addEventListener('tecla', e => tecla(e.detail.valor));
+
+// Portada de HTML: entrar al visor o jugar en la computadora
+function quitarPortada() { $('portada').hidden = true; ctxAudio(); }
+$('btn-pantalla').addEventListener('click', quitarPortada);
+$('btn-vr').addEventListener('click', () => {
+  quitarPortada();
+  const entrar = () => { const r = escena.enterVR(); if (r && r.catch) r.catch(() => { $('portada').hidden = false; $('aviso-vr').textContent = 'No se pudo entrar al modo VR. Intenta de nuevo desde el navegador del Quest.'; }); };
+  if (escena.hasLoaded) entrar(); else escena.addEventListener('loaded', entrar, { once: true });
+});
+// 💡 ¿Este navegador tiene modo VR? navigator.xr existe en el Quest, no en la mayoría de las computadoras
+if (navigator.xr && navigator.xr.isSessionSupported) {
+  navigator.xr.isSessionSupported('immersive-vr').then(si => {
+    if (!si) { $('btn-vr').disabled = true; $('aviso-vr').textContent = 'Este navegador no tiene modo VR. Ábrelo desde el navegador del Quest o juega en la computadora.'; }
+  }).catch(() => {});
+} else {
+  $('btn-vr').disabled = true;
+  $('aviso-vr').textContent = 'Este navegador no tiene modo VR. Ábrelo desde el navegador del Quest o juega en la computadora.';
+}
+
+// Al entrar al visor quitamos el ajuste de la computadora: tu cabeza pone la altura real.
+// Al salir, regresamos el ajuste y mostramos la portada para poder volver a entrar.
+escena.addEventListener('enter-vr', () => { if (escena.is('vr-mode')) $('rig').setAttribute('position', '0 0 0'); ctxAudio(); });
+escena.addEventListener('exit-vr', () => { $('rig').setAttribute('position', '0 0.25 0.6'); $('portada').hidden = false; });
+</script>
+</body>
+</html>
